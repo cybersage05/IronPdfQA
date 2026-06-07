@@ -4,8 +4,8 @@ on:
   push:
     branches: [ main ]
   schedule:
-    - cron: '0 1 * * *'
-    - cron: '0 13 * * *'
+    - cron: '0 23 * * *'   # 6:00 AM Bangkok (UTC+7)
+    - cron: '0 11 * * *'   # 6:00 PM Bangkok (UTC+7)
   workflow_dispatch:
     inputs:
       test_type:
@@ -26,6 +26,11 @@ on:
         required: false
         default: 'Manual trigger'
 
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
 jobs:
   test:
     runs-on: windows-latest
@@ -33,52 +38,14 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '8.0.x'
-
-    - name: Generate run-info.json with real values
-      run: |
-        $dotnetVer = (dotnet --version)
-        $osVer = [System.Environment]::OSVersion.ToString()
-        $cpuCores = [System.Environment]::ProcessorCount.ToString()
-        $totalRam = [math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB, 1).ToString()
-        $arch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString()
-        $timestamp = (Get-Date -Format "yyyy-MM-dd HH:mm:ss UTC")
-        $commitHash = "${{ github.sha }}".Substring(0, 7)
-        $testType = "${{ github.event.inputs.test_type }}"
-        if (-not $testType) { $testType = "all" }
-        $reason = "${{ github.event.inputs.reason }}"
-        if (-not $reason) { $reason = "Scheduled run" }
-        $runInfo = @{
-          runNumber = "${{ github.run_number }}"
-          runId = "${{ github.run_id }}"
-          commitHash = $commitHash
-          branch = "${{ github.ref_name }}"
-          trigger = "${{ github.event_name }}"
-          reason = $reason
-          testType = $testType
-          timestamp = $timestamp
-          os = $osVer
-          dotnetVersion = $dotnetVer
-          cpuCores = $cpuCores
-          totalRamGB = $totalRam
-          architecture = $arch
-          runner = "GitHub Actions windows-latest"
-          ironPdfVersion = "latest"
-          xunitVersion = "2.9.3"
-          status = "running"
-          previousRuns = @(
-            @{ runNumber = "prev-1"; status = "success"; passed = 18; failed = 0; duration = "4.2s"; timestamp = "2026-06-06 13:00:00 UTC"; trigger = "schedule" },
-            @{ runNumber = "prev-2"; status = "success"; passed = 18; failed = 0; duration = "3.9s"; timestamp = "2026-06-06 01:00:00 UTC"; trigger = "schedule" },
-            @{ runNumber = "prev-3"; status = "success"; passed = 18; failed = 0; duration = "4.5s"; timestamp = "2026-06-05 13:00:00 UTC"; trigger = "schedule" },
-            @{ runNumber = "prev-4"; status = "success"; passed = 18; failed = 0; duration = "4.1s"; timestamp = "2026-06-05 01:00:00 UTC"; trigger = "push" }
-          )
-        } | ConvertTo-Json -Depth 5
-        $runInfo | Out-File -FilePath dashboard/run-info.json -Encoding utf8
-      shell: pwsh
 
     - name: Restore packages
       run: dotnet restore
@@ -90,10 +57,6 @@ jobs:
       if: ${{ github.event.inputs.test_type == 'all' || github.event.inputs.test_type == '' || github.event_name != 'workflow_dispatch' }}
       run: dotnet test --no-build --verbosity normal --logger "trx;LogFileName=TestResults.trx" --results-directory "docs/TestResults"
 
-    - name: Run regression tests only
-      if: ${{ github.event.inputs.test_type == 'regression' }}
-      run: dotnet test --no-build --verbosity normal --filter "Category=HappyPath|Category=OutputValidation" --logger "trx;LogFileName=TestResults.trx" --results-directory "docs/TestResults"
-
     - name: Run happy path tests only
       if: ${{ github.event.inputs.test_type == 'happy-path' }}
       run: dotnet test --no-build --verbosity normal --filter "Category=HappyPath" --logger "trx;LogFileName=TestResults.trx" --results-directory "docs/TestResults"
@@ -101,6 +64,10 @@ jobs:
     - name: Run edge case tests only
       if: ${{ github.event.inputs.test_type == 'edge-cases' }}
       run: dotnet test --no-build --verbosity normal --filter "Category=EdgeCase" --logger "trx;LogFileName=TestResults.trx" --results-directory "docs/TestResults"
+
+    - name: Run output validation tests only
+      if: ${{ github.event.inputs.test_type == 'output-validation' }}
+      run: dotnet test --no-build --verbosity normal --filter "Category=OutputValidation" --logger "trx;LogFileName=TestResults.trx" --results-directory "docs/TestResults"
 
     - name: Run performance tests only
       if: ${{ github.event.inputs.test_type == 'performance' }}
@@ -110,23 +77,74 @@ jobs:
       if: ${{ github.event.inputs.test_type == 'negative' }}
       run: dotnet test --no-build --verbosity normal --filter "Category=Negative" --logger "trx;LogFileName=TestResults.trx" --results-directory "docs/TestResults"
 
-    - name: Update run status to success
-      if: success()
+    - name: Run regression tests only
+      if: ${{ github.event.inputs.test_type == 'regression' }}
+      run: dotnet test --no-build --verbosity normal --filter "Category=HappyPath|Category=OutputValidation" --logger "trx;LogFileName=TestResults.trx" --results-directory "docs/TestResults"
+
+    - name: Configure git
+      if: always()
       run: |
-        $json = Get-Content dashboard/run-info.json | ConvertFrom-Json
-        $json.status = "success"
-        $json | ConvertTo-Json -Depth 5 | Out-File -FilePath dashboard/run-info.json -Encoding utf8
+        git config --global user.name "GitHub Actions Bot"
+        git config --global user.email "actions@github.com"
       shell: pwsh
 
-    - name: Update run status to failed
-      if: failure()
+    - name: Generate real run-info.json
+      if: always()
       run: |
-        $json = Get-Content dashboard/run-info.json | ConvertFrom-Json
-        $json.status = "failed"
-        $json | ConvertTo-Json -Depth 5 | Out-File -FilePath dashboard/run-info.json -Encoding utf8
+        $dotnetVer = (dotnet --version)
+        $osVer = [System.Environment]::OSVersion.ToString()
+        $cpuCores = [System.Environment]::ProcessorCount.ToString()
+        $totalRam = [math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB, 1).ToString()
+        $arch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString()
+        $timestamp = (Get-Date -Format "yyyy-MM-dd HH:mm:ss UTC")
+        $commitHash = "${{ github.sha }}".Substring(0, 7)
+        $trigger = "${{ github.event_name }}"
+        $reason = "${{ github.event.inputs.reason }}"
+        if (-not $reason) { $reason = "Scheduled run" }
+        $testType = "${{ github.event.inputs.test_type }}"
+        if (-not $testType) { $testType = "all" }
+
+        $runInfo = @{
+          runNumber = "${{ github.run_number }}"
+          runId = "${{ github.run_id }}"
+          commitHash = $commitHash
+          branch = "${{ github.ref_name }}"
+          trigger = $trigger
+          reason = $reason
+          testType = $testType
+          timestamp = $timestamp
+          os = $osVer
+          dotnetVersion = $dotnetVer
+          cpuCores = $cpuCores
+          totalRamGB = $totalRam
+          architecture = $arch
+          runner = "GitHub Actions windows-latest"
+          ironPdfVersion = "2026.6.1"
+          xunitVersion = "2.9.3"
+          status = "success"
+        } | ConvertTo-Json -Depth 3
+
+        $runInfo | Out-File -FilePath dashboard/run-info.json -Encoding utf8
+        Write-Host "run-info.json generated successfully"
+      shell: pwsh
+
+    - name: Commit and push run-info.json
+      if: always()
+      run: |
+        git pull origin main --rebase
+        git add dashboard/run-info.json
+        git diff --staged --quiet
+        if ($LASTEXITCODE -ne 0) {
+          git commit -m "ci: update run-info.json run #${{ github.run_number }}"
+          git push origin main
+          Write-Host "run-info.json committed and pushed"
+        } else {
+          Write-Host "No changes to commit"
+        }
       shell: pwsh
 
     - name: Upload test results
+      if: always()
       uses: actions/upload-artifact@v4
       with:
         name: test-results

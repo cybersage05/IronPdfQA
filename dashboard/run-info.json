@@ -1,25 +1,19 @@
 {
-  "runNumber": "12",
-  "runId": "9876543210",
-  "commitHash": "a1b2c3d",
+  "runNumber": "pending",
+  "runId": "pending",
+  "commitHash": "pending",
   "branch": "main",
-  "trigger": "schedule",
-  "reason": "Scheduled run",
+  "trigger": "pending",
+  "reason": "Awaiting first scheduled run",
   "testType": "all",
-  "timestamp": "2026-06-07 01:00:00 UTC",
-  "os": "Microsoft Windows NT 10.0.20348.0",
-  "dotnetVersion": "8.0.100",
-  "cpuCores": "4",
-  "totalRamGB": "16",
-  "architecture": "X64",
+  "timestamp": "pending",
+  "os": "pending",
+  "dotnetVersion": "pending",
+  "cpuCores": "pending",
+  "totalRamGB": "pending",
+  "architecture": "pending",
   "runner": "GitHub Actions windows-latest",
   "ironPdfVersion": "2026.6.1",
   "xunitVersion": "2.9.3",
-  "status": "success",
-  "previousRuns": [
-    { "runNumber": "11", "status": "success", "passed": 18, "failed": 0, "duration": "4.2s", "timestamp": "2026-06-06 13:00:00 UTC", "trigger": "schedule" },
-    { "runNumber": "10", "status": "success", "passed": 18, "failed": 0, "duration": "3.9s", "timestamp": "2026-06-06 01:00:00 UTC", "trigger": "schedule" },
-    { "runNumber": "9",  "status": "success", "passed": 18, "failed": 0, "duration": "4.5s", "timestamp": "2026-06-05 13:00:00 UTC", "trigger": "schedule" },
-    { "runNumber": "8",  "status": "success", "passed": 18, "failed": 0, "duration": "4.1s", "timestamp": "2026-06-05 01:00:00 UTC", "trigger": "push" }
-  ]
+  "status": "pending"
 }
