@@ -1,0 +1,25 @@
+# Build outputs
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+# Test results
+docs/TestResults/
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+
+# NuGet
+*.nupkg
+.nuget/
+packages/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp PDF outputs
+*.pdf

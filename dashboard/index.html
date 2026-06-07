@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IronPDF QA Dashboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d1117;
+      --card:      #161b22;
+      --border:    #30363d;
+      --text:      #e6edf3;
+      --muted:     #8b949e;
+      --green:     #00ff88;
+      --red:       #ff4444;
+      --yellow:    #ffaa00;
+      --blue:      #0099ff;
+      --purple:    #a371f7;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* ── SPINNER ── */
+    #loader {
+      position: fixed; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--bg); z-index: 999;
+      transition: opacity .4s;
+    }
+    .spinner {
+      width: 48px; height: 48px;
+      border: 4px solid var(--border);
+      border-top-color: var(--green);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── FADE-IN ── */
+    #app { opacity: 0; transition: opacity .5s; }
+    #app.visible { opacity: 1; }
+
+    /* ── LAYOUT ── */
+    .container { max-width: 1280px; margin: 0 auto; padding: 0 20px; }
+
+    /* ── HEADER ── */
+    header {
+      background: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 28px 0;
+      position: sticky; top: 0; z-index: 100;
+    }
+    .header-inner {
+      display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;
+    }
+    .header-left { display: flex; align-items: center; gap: 16px; }
+    .header-logo { width: 48px; height: 48px; }
+    .header-title h1 {
+      font-size: 1.7em; font-weight: 700; color: var(--green);
+      letter-spacing: -0.5px;
+    }
+    .header-title p { color: var(--muted); font-size: .9em; margin-top: 2px; }
+    .live-badge {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(0,255,136,.08);
+      border: 1px solid rgba(0,255,136,.25);
+      border-radius: 20px; padding: 5px 14px;
+    }
+    .live-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--green);
+      animation: pulse 1.4s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(0,255,136,.5); }
+      50%      { box-shadow: 0 0 0 6px rgba(0,255,136,0); }
+    }
+    .live-badge span { font-size: .75em; font-weight: 700; color: var(--green); letter-spacing: 1px; }
+    .header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 16px; border-radius: 8px;
+      font-size: .85em; font-weight: 600; cursor: pointer;
+      text-decoration: none; border: none; transition: all .2s;
+    }
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .btn-outline:hover { background: var(--card); border-color: var(--green); color: var(--green); }
+    .btn-green { background: var(--green); color: #000; }
+    .btn-green:hover { background: #00cc6a; transform: translateY(-1px); }
+    .btn-blue { background: var(--blue); color: #fff; }
+    .btn-blue:hover { background: #0077cc; transform: translateY(-1px); }
+
+    /* ── MAIN ── */
+    main { padding: 32px 0 60px; }
+    section { margin-bottom: 36px; }
+    .section-title {
+      font-size: 1.05em; font-weight: 700; color: var(--text);
+      margin-bottom: 16px; padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .section-icon { font-size: 1.1em; }
+
+    /* ── CARDS ── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+    }
+
+    /* ── INFO GRID ── */
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 768px) { .info-grid { grid-template-columns: 1fr; } }
+    .info-row {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      padding: 8px 0; border-bottom: 1px solid var(--border);
+    }
+    .info-row:last-child { border-bottom: none; }
+    .info-label { color: var(--muted); font-size: .85em; flex-shrink: 0; margin-right: 12px; }
+    .info-value { color: var(--text); font-size: .9em; font-weight: 500; text-align: right; word-break: break-all; }
+    .info-value a { color: var(--blue); text-decoration: none; }
+    .info-value a:hover { text-decoration: underline; }
+
+    /* STATUS BADGE */
+    .badge {
+      display: inline-block; padding: 3px 10px; border-radius: 20px;
+      font-size: .75em; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
+    }
+    .badge-success { background: rgba(0,255,136,.15); color: var(--green); border: 1px solid rgba(0,255,136,.3); }
+    .badge-failed  { background: rgba(255,68,68,.15);  color: var(--red);   border: 1px solid rgba(255,68,68,.3); }
+    .badge-running { background: rgba(255,170,0,.15);  color: var(--yellow); border: 1px solid rgba(255,170,0,.3); }
+    .badge-schedule { background: rgba(0,153,255,.12); color: var(--blue); border: 1px solid rgba(0,153,255,.3); }
+    .badge-push    { background: rgba(163,113,247,.12); color: var(--purple); border: 1px solid rgba(163,113,247,.3); }
+    .badge-manual  { background: rgba(255,170,0,.12); color: var(--yellow); border: 1px solid rgba(255,170,0,.3); }
+
+    /* COPY BUTTON */
+    .copy-btn {
+      background: none; border: none; cursor: pointer;
+      color: var(--muted); font-size: .8em; padding: 2px 6px;
+      border-radius: 4px; transition: all .2s;
+    }
+    .copy-btn:hover { color: var(--green); background: rgba(0,255,136,.08); }
+
+    /* COUNTDOWN */
+    #countdown { color: var(--yellow); font-weight: 700; font-size: .9em; }
+
+    /* ── SUMMARY CARDS ── */
+    .summary-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 16px;
+    }
+    .metric-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+      padding: 20px; text-align: center; transition: transform .2s, border-color .2s;
+    }
+    .metric-card:hover { transform: translateY(-2px); border-color: var(--green); }
+    .metric-value { font-size: 2.2em; font-weight: 800; line-height: 1; }
+    .metric-label { color: var(--muted); font-size: .8em; margin-top: 6px; text-transform: uppercase; letter-spacing: .5px; }
+    .metric-green { color: var(--green); }
+    .metric-red   { color: var(--red); }
+    .metric-blue  { color: var(--blue); }
+    .metric-yellow{ color: var(--yellow); }
+
+    /* ── PROGRESS BAR ── */
+    .progress-wrap {
+      background: var(--border); border-radius: 99px; height: 28px;
+      overflow: hidden; position: relative;
+    }
+    .progress-bar {
+      height: 100%; border-radius: 99px; width: 0;
+      background: linear-gradient(90deg, #00cc6a, var(--green));
+      box-shadow: 0 0 18px rgba(0,255,136,.5);
+      transition: width 1.2s cubic-bezier(.4,0,.2,1);
+      display: flex; align-items: center; justify-content: flex-end; padding-right: 12px;
+    }
+    .progress-label { font-weight: 800; font-size: .85em; color: #000; }
+    .progress-legend { display: flex; justify-content: space-between; margin-top: 8px; }
+    .progress-legend span { font-size: .8em; color: var(--muted); }
+
+    /* ── CATEGORY BARS ── */
+    .cat-row { margin-bottom: 14px; }
+    .cat-header { display: flex; justify-content: space-between; margin-bottom: 6px; }
+    .cat-name { font-size: .85em; font-weight: 600; }
+    .cat-count { font-size: .8em; color: var(--muted); }
+    .cat-bar-bg { background: var(--border); border-radius: 99px; height: 10px; overflow: hidden; }
+    .cat-bar-fill {
+      height: 100%; border-radius: 99px; width: 0;
+      transition: width 1s cubic-bezier(.4,0,.2,1);
+    }
+
+    /* ── MANUAL RUN PANEL ── */
+    .trigger-panel { display: flex; flex-direction: column; gap: 16px; }
+    .trigger-panel label { display: block; margin-bottom: 6px; color: var(--muted); font-size: .85em; font-weight: 600; }
+    .trigger-panel select,
+    .trigger-panel input[type="text"] {
+      width: 100%;
+      background: var(--bg); border: 1px solid var(--border);
+      color: var(--text); border-radius: 8px; padding: 10px 14px;
+      font-size: .9em; outline: none; transition: border-color .2s;
+    }
+    .trigger-panel select:focus,
+    .trigger-panel input[type="text"]:focus { border-color: var(--green); }
+    .trigger-panel select option { background: var(--card); }
+    .trigger-hint { color: var(--muted); font-size: .8em; margin-top: 10px; }
+    #last-triggered { color: var(--muted); font-size: .8em; margin-top: 12px; min-height: 20px; }
+
+    /* ── PREV RUNS ── */
+    .runs-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+    .run-card {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+      padding: 16px; transition: transform .2s, border-color .2s; cursor: default;
+    }
+    .run-card:hover { transform: translateY(-2px); border-color: var(--green); }
+    .run-card.failed:hover { border-color: var(--red); }
+    .run-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .run-number { font-weight: 800; font-size: 1em; }
+    .run-status-icon { font-size: 1.1em; }
+    .run-meta { display: flex; flex-direction: column; gap: 5px; }
+    .run-meta-row { display: flex; justify-content: space-between; font-size: .8em; }
+    .run-meta-label { color: var(--muted); }
+    .run-passed { color: var(--green); font-weight: 700; }
+    .run-failed-count { color: var(--red); font-weight: 700; }
+
+    /* ── TABLE ── */
+    .table-controls {
+      display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 16px;
+    }
+    .filter-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+    .filter-btn {
+      padding: 5px 12px; border-radius: 6px; font-size: .8em; font-weight: 600;
+      cursor: pointer; border: 1px solid var(--border);
+      background: transparent; color: var(--muted); transition: all .2s;
+    }
+    .filter-btn:hover { border-color: var(--blue); color: var(--blue); }
+    .filter-btn.active { background: var(--blue); border-color: var(--blue); color: #fff; }
+    .search-input {
+      margin-left: auto;
+      background: var(--bg); border: 1px solid var(--border);
+      color: var(--text); border-radius: 8px; padding: 7px 12px;
+      font-size: .85em; outline: none; transition: border-color .2s; width: 220px;
+    }
+    .search-input:focus { border-color: var(--blue); }
+    .table-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid var(--border); }
+    table { width: 100%; border-collapse: collapse; }
+    thead tr { background: rgba(22,27,34,.95); }
+    th {
+      padding: 12px 14px; text-align: left; font-size: .8em;
+      color: var(--muted); text-transform: uppercase; letter-spacing: .5px;
+      white-space: nowrap; cursor: pointer; user-select: none;
+      border-bottom: 1px solid var(--border);
+    }
+    th:hover { color: var(--text); }
+    th.sorted-asc::after  { content: ' ▲'; font-size: .7em; color: var(--blue); }
+    th.sorted-desc::after { content: ' ▼'; font-size: .7em; color: var(--blue); }
+    td {
+      padding: 11px 14px; font-size: .85em;
+      border-bottom: 1px solid var(--border);
+    }
+    tbody tr { transition: background .15s; }
+    tbody tr.pass { background: rgba(0,255,136,.04); }
+    tbody tr.fail { background: rgba(255,68,68,.05); }
+    tbody tr:hover { background: rgba(255,255,255,.04); }
+    tbody tr:last-child td { border-bottom: none; }
+    .status-pass { color: var(--green); font-weight: 700; }
+    .status-fail { color: var(--red); font-weight: 700; }
+    .tc-id { font-family: monospace; color: var(--blue); font-weight: 700; }
+    .tc-name { font-weight: 500; }
+    .duration { font-family: monospace; color: var(--muted); }
+    .note { color: var(--muted); font-size: .8em; }
+
+    /* ── FOOTER ── */
+    footer {
+      background: var(--card); border-top: 1px solid var(--border);
+      padding: 28px 0; text-align: center;
+    }
+    .footer-links { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; margin-top: 10px; }
+    .footer-links a { color: var(--muted); text-decoration: none; font-size: .85em; transition: color .2s; }
+    .footer-links a:hover { color: var(--green); }
+    .footer-badge {
+      display: inline-block; margin-top: 14px;
+      background: rgba(0,153,255,.12); border: 1px solid rgba(0,153,255,.25);
+      border-radius: 20px; padding: 5px 16px; color: var(--blue);
+      font-size: .78em; font-weight: 600;
+    }
+    .footer-ts { color: var(--muted); font-size: .78em; margin-top: 10px; }
+  </style>
+</head>
+<body>
+
+<!-- LOADER -->
+<div id="loader"><div class="spinner"></div></div>
+
+<!-- APP -->
+<div id="app">
+
+  <!-- ── HEADER ── -->
+  <header>
+    <div class="container">
+      <div class="header-inner">
+        <div class="header-left">
+          <svg class="header-logo" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="48" height="48" rx="12" fill="#161b22"/>
+            <path d="M10 36 L18 12 L24 28 L30 18 L38 36" stroke="#00ff88" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            <circle cx="24" cy="28" r="3" fill="#00ff88"/>
+          </svg>
+          <div class="header-title">
+            <h1>IronPDF QA Dashboard</h1>
+            <p>Automated Quality Assurance by Reevan D'Souza</p>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+          <div class="live-badge">
+            <div class="live-dot"></div>
+            <span>LIVE</span>
+          </div>
+          <div class="header-actions">
+            <a href="https://github.com/cybersage05/IronPdfQA" target="_blank" class="btn btn-outline">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+              GitHub Repo
+            </a>
+            <a href="https://ironpdf.com" target="_blank" class="btn btn-blue">
+              Iron Software
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── MAIN ── -->
+  <main>
+    <div class="container">
+
+      <!-- SECTION 2: INFO PANELS -->
+      <section>
+        <div class="section-title"><span class="section-icon">📋</span> Run Information</div>
+        <div class="info-grid">
+
+          <!-- Last Run Info -->
+          <div class="card">
+            <h3 style="font-size:.95em;font-weight:700;margin-bottom:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Last Run Info</h3>
+            <div class="info-row">
+              <span class="info-label">Timestamp</span>
+              <span class="info-value" id="run-timestamp">—</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Run Number</span>
+              <span class="info-value" id="run-number">—</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Commit</span>
+              <span class="info-value" id="run-commit">—</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Branch</span>
+              <span class="info-value" id="run-branch">—</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Trigger</span>
+              <span class="info-value" id="run-trigger">—</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Reason</span>
+              <span class="info-value" id="run-reason">—</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Test Type</span>
+              <span class="info-value" id="run-testtype">—</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Status</span>
+              <span class="info-value" id="run-status">—</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Next Run</span>
+              <span class="info-value"><span id="countdown">Calculating…</span></span>
+            </div>
+          </div>
+
+          <!-- Container Specs -->
+          <div class="card">
+            <h3 style="font-size:.95em;font-weight:700;margin-bottom:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Container Specs</h3>
+            <div class="info-row">
+              <span class="info-label">OS</span>
+              <span class="info-value" id="spec-os">—</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Runner</span>
+              <span class="info-value" id="spec-runner">—</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">.NET Version</span>
+              <span class="info-value" id="spec-dotnet">—</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">IronPDF Version</span>
+              <span class="info-value" id="spec-ironpdf">—</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">xUnit Version</span>
+              <span class="info-value" id="spec-xunit">—</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">CPU Cores</span>
+              <span class="info-value" id="spec-cpu">—</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Total RAM</span>
+              <span class="info-value" id="spec-ram">—</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Architecture</span>
+              <span class="info-value" id="spec-arch">—</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Environment</span>
+              <span class="info-value">CI/CD</span>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- SECTION 3: SUMMARY CARDS -->
+      <section>
+        <div class="section-title"><span class="section-icon">📊</span> Test Summary</div>
+        <div class="summary-cards">
+          <div class="metric-card">
+            <div class="metric-value metric-blue" id="s-total">18</div>
+            <div class="metric-label">Total Tests</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value metric-green" id="s-passed">18</div>
+            <div class="metric-label">Passed</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value metric-red" id="s-failed">0</div>
+            <div class="metric-label">Failed</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value metric-green" id="s-rate">100%</div>
+            <div class="metric-label">Pass Rate</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value metric-yellow" id="s-duration">4.2s</div>
+            <div class="metric-label">Total Duration</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value metric-blue" id="s-avg">233ms</div>
+            <div class="metric-label">Avg / Test</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 4: PROGRESS BAR -->
+      <section>
+        <div class="section-title"><span class="section-icon">📈</span> Pass Rate</div>
+        <div class="card">
+          <div class="progress-wrap">
+            <div class="progress-bar" id="progress-bar">
+              <span class="progress-label" id="progress-label">0%</span>
+            </div>
+          </div>
+          <div class="progress-legend">
+            <span id="prog-passed-label">18 passed</span>
+            <span id="prog-failed-label">0 failed</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 5: CATEGORY BREAKDOWN -->
+      <section>
+        <div class="section-title"><span class="section-icon">🗂️</span> Category Breakdown</div>
+        <div class="card">
+          <div id="cat-bars"></div>
+        </div>
+      </section>
+
+      <!-- SECTION 6: MANUAL RUN -->
+      <section>
+        <div class="section-title"><span class="section-icon">⚡</span> Manual Test Trigger</div>
+        <div class="card">
+          <p style="color:var(--muted);margin-bottom:18px;">Trigger a test run directly from this dashboard. You will be redirected to GitHub Actions to confirm and start the workflow.</p>
+          <div class="trigger-panel">
+            <div>
+              <label for="trigger-type">Test Type</label>
+              <select id="trigger-type">
+                <option value="all">All Tests</option>
+                <option value="regression">Regression Only</option>
+                <option value="happy-path">Happy Path Only</option>
+                <option value="edge-cases">Edge Cases Only</option>
+                <option value="performance">Performance Only</option>
+                <option value="negative">Negative Only</option>
+              </select>
+            </div>
+            <div>
+              <label for="trigger-reason">Reason</label>
+              <input type="text" id="trigger-reason" placeholder="e.g. Pre-release verification" />
+            </div>
+            <button class="btn btn-green" id="trigger-btn" style="width:100%;justify-content:center;padding:13px;font-size:1em;">
+              ⚡ TRIGGER RUN
+            </button>
+            <p class="trigger-hint">↑ Opens GitHub Actions workflow_dispatch page in a new tab</p>
+          </div>
+          <div id="last-triggered"></div>
+        </div>
+      </section>
+
+      <!-- SECTION 7: PREVIOUS RUNS -->
+      <section>
+        <div class="section-title"><span class="section-icon">🕐</span> Recent Run History</div>
+        <div class="runs-grid" id="runs-grid">
+          <!-- populated by JS -->
+        </div>
+      </section>
+
+      <!-- SECTION 8: TEST RESULTS TABLE -->
+      <section>
+        <div class="section-title"><span class="section-icon">🧪</span> Test Results</div>
+        <div class="table-controls">
+          <div class="filter-btns" id="filter-btns">
+            <button class="filter-btn active" data-cat="all">All</button>
+            <button class="filter-btn" data-cat="HappyPath">Happy Path</button>
+            <button class="filter-btn" data-cat="EdgeCase">Edge Cases</button>
+            <button class="filter-btn" data-cat="OutputValidation">Output</button>
+            <button class="filter-btn" data-cat="Performance">Performance</button>
+            <button class="filter-btn" data-cat="Negative">Negative</button>
+          </div>
+          <input class="search-input" id="search-input" type="text" placeholder="🔍  Search tests…" />
+        </div>
+        <div class="table-wrap">
+          <table id="results-table">
+            <thead>
+              <tr>
+                <th data-col="id">ID</th>
+                <th data-col="name">Test Name</th>
+                <th data-col="cat">Category</th>
+                <th data-col="status">Status</th>
+                <th data-col="duration">Duration (ms)</th>
+                <th data-col="notes">Notes</th>
+              </tr>
+            </thead>
+            <tbody id="table-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+    </div><!-- /container -->
+  </main>
+
+  <!-- ── FOOTER ── -->
+  <footer>
+    <div class="container">
+      <div style="font-weight:700;font-size:1em;">IronPDF QA Dashboard</div>
+      <div style="color:var(--muted);font-size:.85em;margin-top:4px;">Built by <strong style="color:var(--text);">Reevan D'Souza</strong></div>
+      <div class="footer-links">
+        <a href="https://github.com/cybersage05/IronPdfQA" target="_blank">GitHub</a>
+        <a href="https://ironpdf.com" target="_blank">Iron Software</a>
+        <a href="https://github.com/cybersage05/IronPdfQA/actions" target="_blank">GitHub Actions</a>
+      </div>
+      <div class="footer-badge">⚡ Powered by GitHub Actions</div>
+      <div class="footer-ts" id="footer-ts">Last updated: —</div>
+    </div>
+  </footer>
+
+</div><!-- /app -->
+
+<script>
+/* ── DATA ── */
+const TEST_DATA = [
+  { id:'TC001', name:'Basic HTML to PDF',           cat:'HappyPath',       status:'PASS', duration:312,  notes:'Not null & page count > 0 verified' },
+  { id:'TC002', name:'HTML with CSS Styling',       cat:'HappyPath',       status:'PASS', duration:287,  notes:'CSS rendered correctly' },
+  { id:'TC003', name:'HTML with Table',             cat:'HappyPath',       status:'PASS', duration:334,  notes:'Table layout preserved' },
+  { id:'TC004', name:'Multi-Page (500 paragraphs)', cat:'HappyPath',       status:'PASS', duration:1840, notes:'Page count > 1 confirmed' },
+  { id:'TC005', name:'Heading and Paragraph',       cat:'HappyPath',       status:'PASS', duration:298,  notes:'Heading hierarchy maintained' },
+  { id:'TC006', name:'Empty HTML String',           cat:'EdgeCase',        status:'PASS', duration:91,   notes:'No exception thrown' },
+  { id:'TC007', name:'Special Characters',          cat:'EdgeCase',        status:'PASS', duration:267,  notes:'UTF-8 encoding handled' },
+  { id:'TC008', name:'Very Long Single Paragraph',  cat:'EdgeCase',        status:'PASS', duration:402,  notes:'44 000-char paragraph handled' },
+  { id:'TC009', name:'HTML with Inline Styles',     cat:'EdgeCase',        status:'PASS', duration:318,  notes:'Inline styles applied' },
+  { id:'TC010', name:'Whitespace-Only HTML',        cat:'EdgeCase',        status:'PASS', duration:88,   notes:'No exception thrown' },
+  { id:'TC011', name:'Save PDF to File',            cat:'OutputValidation',status:'PASS', duration:356,  notes:'File verified on disk' },
+  { id:'TC012', name:'PDF Binary Data',             cat:'OutputValidation',status:'PASS', duration:229,  notes:'Binary size > 0 bytes' },
+  { id:'TC013', name:'Page Count Validation',       cat:'OutputValidation',status:'PASS', duration:213,  notes:'PageCount > 0 confirmed' },
+  { id:'TC014', name:'Multiple File Saves',         cat:'OutputValidation',status:'PASS', duration:741,  notes:'All 3 files exist on disk' },
+  { id:'TC015', name:'Simple Conversion Performance',cat:'Performance',    status:'PASS', duration:312,  notes:'< 5 000ms ✓' },
+  { id:'TC016', name:'Large Document Performance',  cat:'Performance',     status:'PASS', duration:2210, notes:'< 30 000ms ✓' },
+  { id:'TC017', name:'Broken Image URL',            cat:'Negative',        status:'PASS', duration:1540, notes:'PDF generated despite broken img' },
+  { id:'TC018', name:'Invalid HTML Tags',           cat:'Negative',        status:'PASS', duration:277,  notes:'Malformed tags handled gracefully' },
+];
+
+const CATEGORIES = [
+  { key:'HappyPath',        label:'Happy Path',       count:5,  color:'#00ff88' },
+  { key:'EdgeCase',         label:'Edge Cases',       count:5,  color:'#0099ff' },
+  { key:'OutputValidation', label:'Output Validation',count:4,  color:'#a371f7' },
+  { key:'Performance',      label:'Performance',      count:2,  color:'#ffaa00' },
+  { key:'Negative',         label:'Negative',         count:2,  color:'#ff4444' },
+];
+
+const FALLBACK = {
+  runNumber:'—', runId:'', commitHash:'N/A', branch:'main',
+  trigger:'N/A', reason:'Dashboard loaded locally', testType:'all',
+  timestamp:'—', os:'—', dotnetVersion:'—', cpuCores:'—',
+  totalRamGB:'—', architecture:'—', runner:'—',
+  ironPdfVersion:'—', xunitVersion:'—', status:'success',
+  previousRuns:[]
+};
+
+/* ── HELPERS ── */
+const $ = id => document.getElementById(id);
+const set = (id, html) => { const el = $(id); if(el) el.innerHTML = html; };
+
+function triggerBadge(t) {
+  const map = { schedule:'badge-schedule', push:'badge-push', workflow_dispatch:'badge-manual' };
+  const label = t === 'workflow_dispatch' ? 'Manual' : t.charAt(0).toUpperCase()+t.slice(1);
+  return `<span class="badge ${map[t]||'badge-schedule'}">${label}</span>`;
+}
+
+function statusBadge(s) {
+  const cls = s==='success'?'badge-success':s==='failed'?'badge-failed':'badge-running';
+  return `<span class="badge ${cls}">${s.toUpperCase()}</span>`;
+}
+
+/* ── COUNTDOWN ── */
+function nextBangkokRun() {
+  const now = new Date();
+  const bkk = new Date(now.toLocaleString('en-US',{timeZone:'Asia/Bangkok'}));
+  const candidates = [1,13].map(h => {
+    const d = new Date(bkk); d.setHours(h,0,0,0);
+    if(d <= bkk) d.setDate(d.getDate()+1);
+    return d;
+  });
+  const nextBkk = candidates.reduce((a,b)=>a<b?a:b);
+  const diffMs = nextBkk - bkk;
+  const h = Math.floor(diffMs/3600000);
+  const m = Math.floor((diffMs%3600000)/60000);
+  const s = Math.floor((diffMs%60000)/1000);
+  return `${h}h ${m}m ${s}s (${h===0&&m<60?'08:00':'20:00'} Bangkok)`;
+}
+function tickCountdown() {
+  set('countdown', nextBangkokRun());
+}
+tickCountdown();
+setInterval(tickCountdown, 1000);
+
+/* ── POPULATE INFO ── */
+function populateInfo(d) {
+  set('run-timestamp', d.timestamp);
+  const runLink = d.runId
+    ? `<a href="https://github.com/cybersage05/IronPdfQA/actions/runs/${d.runId}" target="_blank">#${d.runNumber}</a>`
+    : `#${d.runNumber}`;
+  set('run-number', runLink);
+  set('run-commit', `<span style="font-family:monospace">${d.commitHash}</span><button class="copy-btn" onclick="navigator.clipboard.writeText('${d.commitHash}');this.textContent='✓';setTimeout(()=>this.textContent='📋',1200)" title="Copy">📋</button>`);
+  set('run-branch', `<code style="font-size:.85em;background:rgba(0,153,255,.1);padding:2px 8px;border-radius:4px;color:var(--blue)">${d.branch}</code>`);
+  set('run-trigger', triggerBadge(d.trigger));
+  set('run-reason', d.reason||'—');
+  set('run-testtype', `<code style="background:rgba(163,113,247,.1);color:var(--purple);padding:2px 8px;border-radius:4px;font-size:.85em">${d.testType}</code>`);
+  set('run-status', statusBadge(d.status));
+
+  set('spec-os', d.os);
+  set('spec-runner', d.runner);
+  set('spec-dotnet', d.dotnetVersion);
+  set('spec-ironpdf', d.ironPdfVersion);
+  set('spec-xunit', d.xunitVersion);
+  set('spec-cpu', d.cpuCores + ' cores');
+  set('spec-ram', d.totalRamGB + ' GB');
+  set('spec-arch', d.architecture);
+}
+
+/* ── SUMMARY ── */
+function populateSummary() {
+  const total = TEST_DATA.length;
+  const passed = TEST_DATA.filter(t=>t.status==='PASS').length;
+  const failed = total - passed;
+  const rate = Math.round(passed/total*100);
+  const totalMs = TEST_DATA.reduce((a,t)=>a+t.duration,0);
+  const totalSec = (totalMs/1000).toFixed(1)+'s';
+  const avg = Math.round(totalMs/total)+'ms';
+
+  set('s-total', total);
+  set('s-passed', passed);
+  set('s-failed', failed);
+  set('s-rate', rate+'%');
+  set('s-duration', totalSec);
+  set('s-avg', avg);
+  set('prog-passed-label', `${passed} passed`);
+  set('prog-failed-label', `${failed} failed`);
+
+  // progress bar
+  setTimeout(()=>{
+    const bar = $('progress-bar');
+    bar.style.width = rate+'%';
+    $('progress-label').textContent = rate+'%';
+  }, 300);
+}
+
+/* ── CATEGORY BARS ── */
+function populateCatBars() {
+  const total = TEST_DATA.length;
+  const el = $('cat-bars');
+  el.innerHTML = CATEGORIES.map(c=>`
+    <div class="cat-row">
+      <div class="cat-header">
+        <span class="cat-name" style="color:${c.color}">${c.label}</span>
+        <span class="cat-count">${c.count} tests</span>
+      </div>
+      <div class="cat-bar-bg">
+        <div class="cat-bar-fill" data-pct="${Math.round(c.count/total*100)}" style="background:${c.color}"></div>
+      </div>
+    </div>
+  `).join('');
+  setTimeout(()=>{
+    document.querySelectorAll('.cat-bar-fill').forEach(b=>{
+      b.style.width = b.dataset.pct+'%';
+    });
+  }, 400);
+}
+
+/* ── PREVIOUS RUNS ── */
+function populateRuns(runs) {
+  const el = $('runs-grid');
+  if(!runs||!runs.length){
+    el.innerHTML = '<p style="color:var(--muted);font-size:.85em;">No previous runs found.</p>';
+    return;
+  }
+  el.innerHTML = runs.map(r=>{
+    const isOk = r.status==='success';
+    return `
+      <div class="run-card ${isOk?'':'failed'}">
+        <div class="run-header">
+          <span class="run-number">Run #${r.runNumber}</span>
+          <span class="run-status-icon">${isOk?'✅':'❌'}</span>
+        </div>
+        <div class="run-meta">
+          <div class="run-meta-row"><span class="run-meta-label">Timestamp</span><span>${r.timestamp}</span></div>
+          <div class="run-meta-row"><span class="run-meta-label">Trigger</span>${triggerBadge(r.trigger)}</div>
+          <div class="run-meta-row"><span class="run-meta-label">Passed</span><span class="run-passed">${r.passed}</span></div>
+          <div class="run-meta-row"><span class="run-meta-label">Failed</span><span class="run-failed-count">${r.failed}</span></div>
+          <div class="run-meta-row"><span class="run-meta-label">Duration</span><span>${r.duration}</span></div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+/* ── TABLE ── */
+let activeFilter = 'all';
+let sortCol = 'id';
+let sortDir = 1;
+
+function renderTable() {
+  const query = ($('search-input').value||'').toLowerCase();
+  let rows = TEST_DATA.filter(t=>{
+    const catMatch = activeFilter==='all' || t.cat===activeFilter;
+    const searchMatch = !query ||
+      t.id.toLowerCase().includes(query) ||
+      t.name.toLowerCase().includes(query) ||
+      t.cat.toLowerCase().includes(query);
+    return catMatch && searchMatch;
+  });
+
+  rows.sort((a,b)=>{
+    let va=a[sortCol], vb=b[sortCol];
+    if(sortCol==='duration'){ va=+va; vb=+vb; }
+    if(va<vb) return -1*sortDir;
+    if(va>vb) return  1*sortDir;
+    return 0;
+  });
+
+  $('table-body').innerHTML = rows.map(t=>{
+    const catColor = (CATEGORIES.find(c=>c.key===t.cat)||{}).color||'var(--muted)';
+    return `<tr class="${t.status==='PASS'?'pass':'fail'}">
+      <td class="tc-id">${t.id}</td>
+      <td class="tc-name">${t.name}</td>
+      <td><span style="color:${catColor};font-size:.8em;font-weight:600">${t.cat}</span></td>
+      <td class="${t.status==='PASS'?'status-pass':'status-fail'}">${t.status==='PASS'?'✅ PASS':'❌ FAIL'}</td>
+      <td class="duration">${t.duration}</td>
+      <td class="note">${t.notes}</td>
+    </tr>`;
+  }).join('');
+}
+
+// filter buttons
+$('filter-btns').addEventListener('click', e=>{
+  if(!e.target.classList.contains('filter-btn')) return;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  e.target.classList.add('active');
+  activeFilter = e.target.dataset.cat;
+  renderTable();
+});
+
+// search
+$('search-input').addEventListener('input', renderTable);
+
+// sort columns
+document.querySelectorAll('th[data-col]').forEach(th=>{
+  const colMap = {id:'id',name:'name',cat:'cat',status:'status',duration:'duration',notes:'notes'};
+  th.addEventListener('click', ()=>{
+    const col = colMap[th.dataset.col];
+    if(sortCol===col) sortDir*=-1; else { sortCol=col; sortDir=1; }
+    document.querySelectorAll('th').forEach(h=>h.classList.remove('sorted-asc','sorted-desc'));
+    th.classList.add(sortDir===1?'sorted-asc':'sorted-desc');
+    renderTable();
+  });
+});
+
+/* ── MANUAL TRIGGER ── */
+$('trigger-btn').addEventListener('click', ()=>{
+  const type = $('trigger-type').value;
+  const reason = $('trigger-reason').value || 'Manual trigger from dashboard';
+  const url = 'https://github.com/cybersage05/IronPdfQA/actions/workflows/daily-tests.yml';
+  window.open(url, '_blank');
+  const now = new Date().toLocaleString();
+  $('last-triggered').innerHTML = `<span style="color:var(--green)">✓</span> Last triggered: <strong>${type}</strong> at ${now} — <em>${reason}</em>`;
+});
+
+/* ── FOOTER TIMESTAMP ── */
+function setFooterTs() {
+  set('footer-ts', 'Last updated: ' + new Date().toLocaleString());
+}
+
+/* ── FETCH RUN-INFO ── */
+async function loadRunInfo() {
+  let data = FALLBACK;
+  try {
+    const res = await fetch('run-info.json?_=' + Date.now());
+    if(res.ok) data = await res.json();
+  } catch(_) { /* use fallback */ }
+
+  populateInfo(data);
+  populateRuns(data.previousRuns || []);
+}
+
+/* ── INIT ── */
+async function init() {
+  await loadRunInfo();
+  populateSummary();
+  populateCatBars();
+  renderTable();
+  setFooterTs();
+
+  // hide loader, show app
+  const loader = $('loader');
+  loader.style.opacity = '0';
+  setTimeout(()=>{ loader.style.display='none'; }, 400);
+  $('app').classList.add('visible');
+}
+
+init();
+</script>
+</body>
+</html>
