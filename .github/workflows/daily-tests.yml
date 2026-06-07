@@ -71,10 +71,10 @@ jobs:
           xunitVersion = "2.9.3"
           status = "running"
           previousRuns = @(
-            @{ runNumber = "${{ github.run_number - 1 }}"; status = "success"; passed = 18; failed = 0; duration = "4.2s"; timestamp = "2026-06-06 13:00:00 UTC"; trigger = "schedule" },
-            @{ runNumber = "${{ github.run_number - 2 }}"; status = "success"; passed = 18; failed = 0; duration = "3.9s"; timestamp = "2026-06-06 01:00:00 UTC"; trigger = "schedule" },
-            @{ runNumber = "${{ github.run_number - 3 }}"; status = "success"; passed = 18; failed = 0; duration = "4.5s"; timestamp = "2026-06-05 13:00:00 UTC"; trigger = "schedule" },
-            @{ runNumber = "${{ github.run_number - 4 }}"; status = "success"; passed = 18; failed = 0; duration = "4.1s"; timestamp = "2026-06-05 01:00:00 UTC"; trigger = "push" }
+            @{ runNumber = "prev-1"; status = "success"; passed = 18; failed = 0; duration = "4.2s"; timestamp = "2026-06-06 13:00:00 UTC"; trigger = "schedule" },
+            @{ runNumber = "prev-2"; status = "success"; passed = 18; failed = 0; duration = "3.9s"; timestamp = "2026-06-06 01:00:00 UTC"; trigger = "schedule" },
+            @{ runNumber = "prev-3"; status = "success"; passed = 18; failed = 0; duration = "4.5s"; timestamp = "2026-06-05 13:00:00 UTC"; trigger = "schedule" },
+            @{ runNumber = "prev-4"; status = "success"; passed = 18; failed = 0; duration = "4.1s"; timestamp = "2026-06-05 01:00:00 UTC"; trigger = "push" }
           )
         } | ConvertTo-Json -Depth 5
         $runInfo | Out-File -FilePath dashboard/run-info.json -Encoding utf8
