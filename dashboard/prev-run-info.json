@@ -1,0 +1,19 @@
+{
+  "runNumber": "pending",
+  "runId": "pending",
+  "commitHash": "pending",
+  "branch": "main",
+  "trigger": "pending",
+  "reason": "No previous run yet",
+  "testType": "all",
+  "timestamp": "pending",
+  "os": "pending",
+  "dotnetVersion": "pending",
+  "cpuCores": "pending",
+  "totalRamGB": "pending",
+  "architecture": "pending",
+  "runner": "GitHub Actions windows-latest",
+  "ironPdfVersion": "2026.6.1",
+  "xunitVersion": "2.9.3",
+  "status": "pending"
+}

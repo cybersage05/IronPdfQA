@@ -430,6 +430,14 @@
         </div>
       </section>
 
+      <!-- SECTION 2b: PREVIOUS RUN -->
+      <section>
+        <div class="section-title">
+          <span class="section-icon">🕐</span> Previous Run
+        </div>
+        <div id="prev-run-section"></div>
+      </section>
+
       <!-- SECTION 3: SUMMARY CARDS -->
       <section>
         <div class="section-title"><span class="section-icon">📊</span> Test Summary</div>
@@ -869,20 +877,82 @@ const FALLBACK = {
 
 async function loadRunInfo() {
   let data = FALLBACK;
+  let prevData = null;
   try {
     const res = await fetch('run-info.json?_=' + Date.now());
     if (res.ok) data = await res.json();
-  } catch (_) { /* use fallback */ }
-  return data;
+  } catch (_) {}
+  try {
+    const res = await fetch('prev-run-info.json?_=' + Date.now());
+    if (res.ok) {
+      const prev = await res.json();
+      if (prev.runNumber !== 'pending') prevData = prev;
+    }
+  } catch (_) {}
+  return { current: data, previous: prevData };
+}
+
+/* ═══════════════════════════════════════════
+   PREVIOUS RUN
+═══════════════════════════════════════════ */
+function populatePreviousRun(prev) {
+  const section = $('prev-run-section');
+  if (!section) return;
+  if (!prev) {
+    section.innerHTML = `
+      <div class="card" style="text-align:center;padding:30px;">
+        <p style="color:var(--muted);font-style:italic;">
+          No previous run data yet. Will appear after the second run completes.
+        </p>
+      </div>`;
+    return;
+  }
+  const isOk = prev.status === 'success';
+  section.innerHTML = `
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <span style="font-weight:700;font-size:1em;">Run #${prev.runNumber}</span>
+        ${isOk
+          ? '<span class="badge badge-success">✅ SUCCESS</span>'
+          : '<span class="badge badge-failed">❌ FAILED</span>'}
+      </div>
+      <div class="info-row">
+        <span class="info-label">Timestamp</span>
+        <span class="info-value">${toBangkokTime(prev.timestamp)}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Trigger</span>
+        <span class="info-value">${triggerBadge(prev.trigger)}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Test Type</span>
+        <span class="info-value">
+          <code style="background:rgba(163,113,247,.1);color:var(--purple);padding:2px 8px;border-radius:4px;font-size:.85em">${prev.testType}</code>
+        </span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">OS</span>
+        <span class="info-value">${isPending(prev.os) ? '<span class="info-pending">N/A</span>' : prev.os}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">.NET Version</span>
+        <span class="info-value">${isPending(prev.dotnetVersion) ? '<span class="info-pending">N/A</span>' : prev.dotnetVersion}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Commit</span>
+        <span class="info-value" style="font-family:monospace">${prev.commitHash}</span>
+      </div>
+    </div>`;
 }
 
 /* ═══════════════════════════════════════════
    INIT
 ═══════════════════════════════════════════ */
 async function init() {
-  const data = await loadRunInfo();
+  const { current, previous } = await loadRunInfo();
 
-  populateInfo(data);
+  populateInfo(current);
+  populatePreviousRun(previous);
   populateCatBars();
   renderTable();
   setFooterTs();

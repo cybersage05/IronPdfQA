@@ -88,6 +88,20 @@ jobs:
         git config --global user.email "actions@github.com"
       shell: pwsh
 
+    - name: Archive previous run-info.json
+      if: always()
+      run: |
+        if (Test-Path dashboard/run-info.json) {
+          $existing = Get-Content dashboard/run-info.json | ConvertFrom-Json
+          if ($existing.runNumber -ne "pending") {
+            Copy-Item dashboard/run-info.json dashboard/prev-run-info.json
+            Write-Host "Previous run archived as prev-run-info.json"
+          } else {
+            Write-Host "Skipping archive — run-info is still pending"
+          }
+        }
+      shell: pwsh
+
     - name: Generate real run-info.json
       if: always()
       run: |
@@ -128,16 +142,16 @@ jobs:
         Write-Host "run-info.json generated successfully"
       shell: pwsh
 
-    - name: Commit and push run-info.json
+    - name: Commit and push run info files
       if: always()
       run: |
         git pull origin main --rebase
-        git add dashboard/run-info.json
+        git add dashboard/run-info.json dashboard/prev-run-info.json
         git diff --staged --quiet
         if ($LASTEXITCODE -ne 0) {
-          git commit -m "ci: update run-info.json run #${{ github.run_number }}"
+          git commit -m "ci: update run info for run #${{ github.run_number }}"
           git push origin main
-          Write-Host "run-info.json committed and pushed"
+          Write-Host "Run info committed and pushed"
         } else {
           Write-Host "No changes to commit"
         }
